@@ -1,7 +1,6 @@
 import { apiInitializer } from "discourse/lib/api";
 
 export default apiInitializer("1.8.0", (api) => {
-  console.log("[fix-flair] Plugin loaded!");
 
   const injectedGroupStyles = new Set();
   const processedElements = new WeakSet();
@@ -86,7 +85,7 @@ export default apiInitializer("1.8.0", (api) => {
               flair_group_id: user.flair_group_id,
               flair_name: user.flair_name,
             };
-            console.log(`[fix-flair] Got flair for ${username}:`, flair);
+
             return flair;
           }
         } catch (e) {
@@ -94,9 +93,9 @@ export default apiInitializer("1.8.0", (api) => {
         }
       }
 
-      console.log(`[fix-flair] No flair found for ${username}`);
+
     } catch (e) {
-      console.log(`[fix-flair] Error fetching flair for ${username}:`, e);
+
     }
 
     return null;
@@ -124,7 +123,7 @@ export default apiInitializer("1.8.0", (api) => {
     });
 
     if (usernames.size === 0) return;
-    console.log(`[fix-flair] Found ${usernames.size} unique users to check:`, [...usernames]);
+
 
     // Fetch flair data for all unique users (with concurrency limit)
     const promises = [...usernames].map((username) => getUserFlair(username));
@@ -166,27 +165,16 @@ export default apiInitializer("1.8.0", (api) => {
   }
 
   // Run on page changes (subsequent navigation)
-  api.onPageChange((url) => {
-    console.log("[fix-flair] onPageChange fired:", url);
+  api.onPageChange(() => {
     setTimeout(injectFlairsOnPage, 300);
     setTimeout(injectFlairsOnPage, 1000);
     setTimeout(injectFlairsOnPage, 2500);
   });
 
-  // Run on initial page load - onPageChange doesn't fire on first load
-  console.log("[fix-flair] Scheduling initial load...");
-  setTimeout(() => {
-    console.log("[fix-flair] Initial load - 500ms");
-    injectFlairsOnPage();
-  }, 500);
-  setTimeout(() => {
-    console.log("[fix-flair] Initial load - 1500ms");
-    injectFlairsOnPage();
-  }, 1500);
-  setTimeout(() => {
-    console.log("[fix-flair] Initial load - 3000ms");
-    injectFlairsOnPage();
-  }, 3000);
+  // Run on initial page load
+  setTimeout(injectFlairsOnPage, 500);
+  setTimeout(injectFlairsOnPage, 1500);
+  setTimeout(injectFlairsOnPage, 3000);
 
   // Also observe DOM changes for dynamically loaded content
   const observer = new MutationObserver(() => {
