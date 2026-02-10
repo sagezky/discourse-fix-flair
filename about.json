@@ -5,6 +5,6 @@
   "component": true,
   "authors": "",
   "theme_version": "1.0.0",
-  "minimum_discourse_version": "2.7.0",
+  "minimum_discourse_version": "3.2.0",
   "maximum_discourse_version": null
 }
