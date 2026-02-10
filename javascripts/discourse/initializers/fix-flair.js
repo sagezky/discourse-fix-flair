@@ -166,30 +166,16 @@ export default apiInitializer("1.8.0", (api) => {
       // Check context and inject appropriately
       const avatar = el.querySelector("img.avatar");
       if (avatar) {
-        // This is an avatar link - add flair as overlay directly on the avatar
-        const avatarParent = avatar.parentElement;
+        // Always wrap avatar in its own small container for proper positioning
+        const wrapper = document.createElement("span");
+        wrapper.className = "fix-flair-wrapper";
 
-        // If avatar is direct child of the link, wrap it in a container
-        if (avatarParent === el) {
-          const wrapper = document.createElement("div");
-          wrapper.style.position = "relative";
-          wrapper.style.display = "inline-block";
-          wrapper.style.lineHeight = "0"; // Prevent extra spacing
+        // Replace avatar with wrapper containing avatar + flair
+        avatar.parentNode.insertBefore(wrapper, avatar);
+        wrapper.appendChild(avatar);
 
-          // Replace avatar with wrapper containing avatar
-          avatar.parentNode.insertBefore(wrapper, avatar);
-          wrapper.appendChild(avatar);
-
-          // Add flair to wrapper
-          flairEl.classList.add("fix-flair-avatar-overlay");
-          wrapper.appendChild(flairEl);
-        } else {
-          // Avatar is already in a container, add flair right after avatar image
-          avatarParent.style.position = "relative";
-          flairEl.classList.add("fix-flair-avatar-overlay");
-          // Insert right after the avatar image, not at end of container
-          avatar.insertAdjacentElement('afterend', flairEl);
-        }
+        flairEl.classList.add("fix-flair-avatar-overlay");
+        wrapper.appendChild(flairEl);
       } else {
         // This is a username text link - add flair after username
         flairEl.classList.add("fix-flair-inline");
