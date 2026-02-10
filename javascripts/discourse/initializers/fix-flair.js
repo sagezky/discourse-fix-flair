@@ -184,13 +184,28 @@ export default apiInitializer("1.8.0", (api) => {
     });
   }
 
-  // Run on page changes
-  api.onPageChange(() => {
-    // Run multiple times with delays to catch dynamically loaded content
+  // Run on page changes (subsequent navigation)
+  api.onPageChange((url) => {
+    console.log("[fix-flair] onPageChange fired:", url);
     setTimeout(injectFlairsOnPage, 300);
     setTimeout(injectFlairsOnPage, 1000);
     setTimeout(injectFlairsOnPage, 2500);
   });
+
+  // Run on initial page load - onPageChange doesn't fire on first load
+  console.log("[fix-flair] Scheduling initial load...");
+  setTimeout(() => {
+    console.log("[fix-flair] Initial load - 500ms");
+    injectFlairsOnPage();
+  }, 500);
+  setTimeout(() => {
+    console.log("[fix-flair] Initial load - 1500ms");
+    injectFlairsOnPage();
+  }, 1500);
+  setTimeout(() => {
+    console.log("[fix-flair] Initial load - 3000ms");
+    injectFlairsOnPage();
+  }, 3000);
 
   // Also observe DOM changes for dynamically loaded content
   const observer = new MutationObserver(() => {
