@@ -1,74 +1,56 @@
-import Component from "@glimmer/component";
 import { apiInitializer } from "discourse/lib/api";
-import { htmlSafe } from "@ember/template";
-
-class InlineFlair extends Component {
-  get source() {
-    const oa = this.args.outletArgs;
-    console.log("fix-flair poster-name outletArgs:", oa);
-    return oa?.model || oa?.post || oa;
-  }
-
-  get flairUrl() {
-    return this.source?.flair_url || this.source?.user?.flair_url;
-  }
-
-  get flairName() {
-    return (
-      this.source?.flair_name || this.source?.user?.flair_name || ""
-    );
-  }
-
-  get isIcon() {
-    return this.flairUrl && /^fa[srlbd]?-/.test(this.flairUrl);
-  }
-
-  get isImage() {
-    return this.flairUrl && !this.isIcon;
-  }
-
-  get flairStyle() {
-    const bgColor =
-      this.source?.flair_bg_color || this.source?.user?.flair_bg_color;
-    const fgColor =
-      this.source?.flair_color || this.source?.user?.flair_color;
-    const parts = [];
-    if (bgColor) {
-      const bg = bgColor.startsWith("#") ? bgColor : `#${bgColor}`;
-      parts.push(`background-color: ${bg}`);
-    }
-    if (fgColor) {
-      const fg = fgColor.startsWith("#") ? fgColor : `#${fgColor}`;
-      parts.push(`color: ${fg}`);
-    }
-    return htmlSafe(parts.join("; "));
-  }
-
-  get iconClass() {
-    if (!this.isIcon) return "";
-    return this.flairUrl.replace(/^(fa[srlbd]?)-/, "$1 fa-");
-  }
-
-  <template>
-    {{#if this.isIcon}}
-      <i
-        class="fa {{this.iconClass}} user-flair-inline"
-        style={{this.flairStyle}}
-        title={{this.flairName}}
-      ></i>
-    {{else if this.isImage}}
-      <img
-        class="user-flair-inline"
-        src={{this.flairUrl}}
-        alt={{this.flairName}}
-        title={{this.flairName}}
-        style={{this.flairStyle}}
-        loading="lazy"
-      />
-    {{/if}}
-  </template>
-}
 
 export default apiInitializer("1.0.0", (api) => {
-  api.renderInOutlet("poster-name:after", InlineFlair);
+  const injectedGroupStyles = new Set();
+
+  api.addPosterIcons((cfs, attrs) => {
+    console.log("fix-flair cfs:", cfs, "attrs:", attrs);
+
+    const flairUrl = attrs.flair_url;
+    if (!flairUrl) return [];
+
+    const groupId = attrs.flair_group_id;
+    const flairName = attrs.flair_name || "";
+    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+
+    // Inject per-group dynamic styles (colors + image bg) once
+    if (groupId && !injectedGroupStyles.has(groupId)) {
+      const bg = attrs.flair_bg_color;
+      const fg = attrs.flair_color;
+      const rules = [];
+      if (bg) {
+        rules.push(
+          `background-color: #${bg.replace("#", "")}`
+        );
+      }
+      if (fg) {
+        rules.push(`color: #${fg.replace("#", "")}`);
+      }
+
+      let css = "";
+      if (rules.length) {
+        css += `.flair-group-${groupId} { ${rules.join("; ")}; }\n`;
+      }
+      if (!isIcon) {
+        css += `.flair-group-${groupId}::before { content: ""; display: inline-block; width: 20px; height: 20px; background-image: url("${encodeURI(flairUrl)}"); background-size: contain; background-repeat: no-repeat; vertical-align: middle; }\n`;
+      }
+
+      if (css) {
+        const el = document.createElement("style");
+        el.textContent = css;
+        document.head.appendChild(el);
+      }
+      injectedGroupStyles.add(groupId);
+    }
+
+    const className = `user-flair-inline flair-group-${groupId || "default"}`;
+
+    if (isIcon) {
+      const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
+      return [{ icon: iconName, className, title: flairName }];
+    }
+
+    // Image flair: zero-width space as text, image rendered via ::before CSS
+    return [{ text: "\u200B", className, title: flairName }];
+  });
 });
