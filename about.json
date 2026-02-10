@@ -1,0 +1,10 @@
+{
+  "name": "Fix Flair",
+  "about_url": "",
+  "license_url": "",
+  "component": true,
+  "authors": "",
+  "theme_version": "1.0.0",
+  "minimum_discourse_version": "2.7.0",
+  "maximum_discourse_version": null
+}
