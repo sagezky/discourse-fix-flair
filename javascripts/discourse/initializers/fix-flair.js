@@ -2,81 +2,173 @@ import { apiInitializer } from "discourse/lib/api";
 
 export default apiInitializer("1.8.0", (api) => {
   console.log("[fix-flair] Plugin loaded!");
-  console.log("[fix-flair] API version:", api.version);
 
-  // Log all available API methods for debugging
-  console.log("[fix-flair] Available API methods:", Object.getOwnPropertyNames(Object.getPrototypeOf(api)).filter(m => typeof api[m] === 'function').sort());
-
+  const flairCache = {};
   const injectedGroupStyles = new Set();
+  const processedElements = new WeakSet();
 
   function injectFlairStyles(groupId, flairUrl, bg, fg) {
-    if (groupId && !injectedGroupStyles.has(groupId)) {
-      const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+    if (!groupId || injectedGroupStyles.has(groupId)) return;
+
+    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+    let css = "";
+
+    if (bg || fg) {
       const rules = [];
-
-      if (bg) {
-        rules.push(`background-color: #${bg.replace("#", "")}`);
-      }
-      if (fg) {
-        rules.push(`color: #${fg.replace("#", "")}`);
-      }
-
-      let css = "";
-      if (rules.length) {
-        css += `.flair-group-${groupId} { ${rules.join("; ")}; }\n`;
-      }
-
-      if (!isIcon) {
-        css += `.flair-group-${groupId} { 
-          display: inline-block;
-          width: 20px; 
-          height: 20px; 
-          background-image: url("${encodeURI(flairUrl)}"); 
-          background-size: contain; 
-          background-repeat: no-repeat; 
-          background-position: center;
-          vertical-align: middle;
-          margin-left: 5px;
-        }\n`;
-      } else {
-        css += `.flair-group-${groupId} { 
-          display: inline-block;
-          margin-left: 5px;
-          font-size: 14px;
-        }\n`;
-      }
-
-      if (css) {
-        console.log("[fix-flair] Injecting CSS for group:", groupId, css);
-        const el = document.createElement("style");
-        el.textContent = css;
-        document.head.appendChild(el);
-      }
-      injectedGroupStyles.add(groupId);
+      if (bg) rules.push(`background-color: #${bg.replace("#", "")}`);
+      if (fg) rules.push(`color: #${fg.replace("#", "")}`);
+      css += `.fix-flair-${groupId} { ${rules.join("; ")}; }\n`;
     }
+
+    if (!isIcon) {
+      css += `.fix-flair-${groupId} {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        background-image: url("${encodeURI(flairUrl)}");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        border-radius: 4px;
+      }\n`;
+    }
+
+    if (css) {
+      const el = document.createElement("style");
+      el.textContent = css;
+      document.head.appendChild(el);
+    }
+    injectedGroupStyles.add(groupId);
   }
 
-  // Use addPosterIcons - this works in posts and is still supported
-  api.addPosterIcons((cfs, attrs) => {
-    console.log("[fix-flair] addPosterIcons called!", { cfs, attrs });
-    console.log("[fix-flair] attrs keys:", Object.keys(attrs));
-    console.log("[fix-flair] flair_url:", attrs.flair_url, "flair_group_id:", attrs.flair_group_id, "flair_name:", attrs.flair_name);
+  function createFlairDOM(flairData) {
+    const { flair_url, flair_bg_color, flair_color, flair_group_id, flair_name } = flairData;
+    const isIcon = /^fa[srlbd]?-/.test(flair_url);
 
-    const flairUrl = attrs.flair_url;
-    if (!flairUrl) {
-      console.log("[fix-flair] No flair_url, skipping for user:", attrs.username);
-      return [];
+    injectFlairStyles(flair_group_id, flair_url, flair_bg_color, flair_color);
+
+    const span = document.createElement("span");
+    span.className = `fix-flair fix-flair-${flair_group_id || "default"}`;
+    span.title = flair_name || "";
+
+    if (isIcon) {
+      const iconName = flair_url.replace(/^fa[srlbd]?-/, "");
+      const icon = document.createElement("i");
+      icon.className = `fa fa-${iconName}`;
+      span.appendChild(icon);
     }
+
+    return span;
+  }
+
+  async function getUserFlair(username) {
+    if (username in flairCache) return flairCache[username];
+
+    // Mark as loading to prevent duplicate requests
+    flairCache[username] = null;
+
+    try {
+      const response = await fetch(`/u/${username}/card.json`);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const user = data.user;
+
+      if (user && user.flair_url) {
+        flairCache[username] = {
+          flair_url: user.flair_url,
+          flair_bg_color: user.flair_bg_color,
+          flair_color: user.flair_color,
+          flair_group_id: user.flair_group_id,
+          flair_name: user.flair_name,
+        };
+        console.log(`[fix-flair] Got flair for ${username}:`, flairCache[username]);
+      }
+    } catch (e) {
+      console.log(`[fix-flair] Error fetching flair for ${username}:`, e);
+    }
+
+    return flairCache[username];
+  }
+
+  async function injectFlairsOnPage() {
+    // Find all elements with data-user-card attribute (usernames/avatars)
+    const userElements = document.querySelectorAll("[data-user-card]");
+
+    // Collect unique usernames first
+    const usernames = new Set();
+    userElements.forEach((el) => {
+      const username = el.dataset.userCard;
+      if (username && !processedElements.has(el)) {
+        usernames.add(username);
+      }
+    });
+
+    if (usernames.size === 0) return;
+    console.log(`[fix-flair] Found ${usernames.size} unique users to check:`, [...usernames]);
+
+    // Fetch flair data for all unique users (with concurrency limit)
+    const promises = [...usernames].map((username) => getUserFlair(username));
+    await Promise.all(promises);
+
+    // Now inject flair elements
+    userElements.forEach((el) => {
+      if (processedElements.has(el)) return;
+      processedElements.add(el);
+
+      const username = el.dataset.userCard;
+      const flair = flairCache[username];
+      if (!flair) return;
+
+      const flairEl = createFlairDOM(flair);
+
+      // Check context and inject appropriately
+      const avatar = el.querySelector("img.avatar");
+      if (avatar) {
+        // This is an avatar link - add flair as overlay on avatar
+        el.style.position = "relative";
+        flairEl.classList.add("fix-flair-avatar-overlay");
+        el.appendChild(flairEl);
+      } else {
+        // This is a username text link - add flair after username
+        flairEl.classList.add("fix-flair-inline");
+        el.after(flairEl);
+      }
+    });
+  }
+
+  // Run on page changes
+  api.onPageChange(() => {
+    // Run multiple times with delays to catch dynamically loaded content
+    setTimeout(injectFlairsOnPage, 300);
+    setTimeout(injectFlairsOnPage, 1000);
+    setTimeout(injectFlairsOnPage, 2500);
+  });
+
+  // Also observe DOM changes for dynamically loaded content
+  const observer = new MutationObserver(() => {
+    // Debounce
+    clearTimeout(observer._timeout);
+    observer._timeout = setTimeout(injectFlairsOnPage, 200);
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // Also keep addPosterIcons for within-post flair
+  api.addPosterIcons((cfs, attrs) => {
+    const flairUrl = attrs.flair_url;
+    if (!flairUrl) return [];
 
     const groupId = attrs.flair_group_id;
     const flairName = attrs.flair_name || "";
     const isIcon = /^fa[srlbd]?-/.test(flairUrl);
 
-    console.log("[fix-flair] Adding flair!", { flairUrl, groupId, flairName, isIcon });
-
     injectFlairStyles(groupId, flairUrl, attrs.flair_bg_color, attrs.flair_color);
 
-    const className = `user-flair-inline flair-group-${groupId || "default"}`;
+    const className = `fix-flair fix-flair-${groupId || "default"}`;
 
     if (isIcon) {
       const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
@@ -85,79 +177,4 @@ export default apiInitializer("1.8.0", (api) => {
 
     return [{ text: "\u200B", className, title: flairName }];
   });
-
-  // Log DOM state on page change
-  api.onPageChange((url) => {
-    console.log("[fix-flair] Page changed:", url);
-
-    setTimeout(() => {
-      // Check for existing avatar-flair elements
-      const existingFlairs = document.querySelectorAll('.avatar-flair');
-      console.log("[fix-flair] Existing .avatar-flair elements:", existingFlairs.length);
-      existingFlairs.forEach((el, i) => {
-        console.log(`[fix-flair] .avatar-flair[${i}]:`, el.outerHTML, "computed display:", getComputedStyle(el).display);
-      });
-
-      // Check for poster elements
-      const posters = document.querySelectorAll('.topic-post .poster-avatar, .topic-post .names');
-      console.log("[fix-flair] Poster elements:", posters.length);
-
-      // Check for poster-icon elements (where addPosterIcons injects)
-      const posterIcons = document.querySelectorAll('.poster-icon');
-      console.log("[fix-flair] .poster-icon elements:", posterIcons.length);
-      posterIcons.forEach((el, i) => {
-        console.log(`[fix-flair] .poster-icon[${i}]:`, el.outerHTML);
-      });
-
-      // Check for data-user-card elements
-      const userCards = document.querySelectorAll('[data-user-card]');
-      console.log("[fix-flair] [data-user-card] elements:", userCards.length);
-
-      // Check topic list items
-      const topicListItems = document.querySelectorAll('.topic-list-item');
-      console.log("[fix-flair] .topic-list-item elements:", topicListItems.length);
-
-      // Check for any flair-related classes
-      const flairInline = document.querySelectorAll('.user-flair-inline');
-      console.log("[fix-flair] .user-flair-inline elements:", flairInline.length);
-      flairInline.forEach((el, i) => {
-        console.log(`[fix-flair] .user-flair-inline[${i}]:`, el.outerHTML);
-      });
-    }, 500);
-  });
-
-  // Add CSS to show existing avatar flair everywhere
-  const globalFlairCSS = `
-    /* Show avatar flair in topic lists */
-    .topic-list .posters a[data-user-card] .avatar-flair,
-    .topic-list .topic-avatar .avatar-flair {
-      display: inline-block !important;
-      margin-left: 5px;
-    }
-    
-    /* Show avatar flair in user cards */
-    .user-card .avatar-flair,
-    .user-info .avatar-flair {
-      display: inline-block !important;
-      margin-left: 5px;
-    }
-    
-    /* Show avatar flair next to usernames */
-    .names .avatar-flair,
-    .username .avatar-flair {
-      display: inline-block !important;
-      margin-left: 5px;
-    }
-    
-    /* Ensure flair is visible */
-    .avatar-flair {
-      opacity: 1 !important;
-      visibility: visible !important;
-    }
-  `;
-
-  const styleEl = document.createElement("style");
-  styleEl.textContent = globalFlairCSS;
-  document.head.appendChild(styleEl);
-  console.log("[fix-flair] Global flair CSS injected");
 });

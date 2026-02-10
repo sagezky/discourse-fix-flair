@@ -1,37 +1,38 @@
 <style>
-  .user-flair-inline {
+  /* Flair overlay on avatars */
+  .fix-flair-avatar-overlay {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    z-index: 1;
+  }
+
+  /* Flair inline next to usernames */
+  .fix-flair-inline {
     display: inline-block;
     vertical-align: middle;
-    width: 20px;
-    height: 20px;
-    margin-left: 5px;
+    width: 18px;
+    height: 18px;
+    margin-left: 4px;
     border-radius: 4px;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 18px;
     text-align: center;
   }
 
-  /* Ensure the icon inside poster-icons link is styled */
-  .poster-icon .user-flair-inline {
+  /* Base flair styles */
+  .fix-flair {
+    display: inline-block;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  /* Ensure poster-icon flairs look right */
+  .poster-icon .fix-flair {
     margin-left: 0;
   }
-
-  /* Flair next to avatars in topic lists */
-  .topic-avatar .user-flair-inline,
-  .avatar-flair-preview .user-flair-inline {
-    position: relative;
-    margin-left: 3px;
-  }
-
-  /* Flair in user cards */
-  .user-card .user-flair-inline,
-  .user-info .user-flair-inline {
-    margin-left: 5px;
-  }
-
-  /* Flair in topic post avatars */
-  .topic-body .user-flair-inline {
-    margin-left: 5px;
-  }
 </style>
-
