@@ -43,7 +43,7 @@ export default apiInitializer("1.8.0", (api) => {
     }
   }
 
-  // Use addPosterIcons - this is still supported and works in posts
+  // Use addPosterIcons - this works in posts and is still supported
   api.addPosterIcons((cfs, attrs) => {
     const flairUrl = attrs.flair_url;
     if (!flairUrl) return [];
@@ -64,24 +64,48 @@ export default apiInitializer("1.8.0", (api) => {
     return [{ text: "\u200B", className, title: flairName }];
   });
 
-  // Use decorateUsername to add flair next to usernames everywhere
-  api.decorateUsername((username, user) => {
-    if (!user || !user.flair_url) return;
+  // Use onPageChange to add flair via DOM manipulation for other locations
+  api.onPageChange(() => {
+    setTimeout(() => {
+      // Find all avatars and add flair next to them
+      document.querySelectorAll('[data-user-card]').forEach((element) => {
+        if (element.dataset.flairProcessed) return;
 
-    const flairUrl = user.flair_url;
-    const groupId = user.flair_group_id;
-    const flairName = user.flair_name || "";
-    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+        const username = element.dataset.userCard;
+        if (!username) return;
 
-    injectFlairStyles(groupId, flairUrl, user.flair_bg_color, user.flair_color);
+        // Mark as processed
+        element.dataset.flairProcessed = "true";
 
-    const className = `user-flair-inline flair-group-${groupId || "default"}`;
+        // Try to get user data from the element's attributes
+        const flairUrl = element.dataset.flairUrl;
+        const flairGroupId = element.dataset.flairGroupId;
+        const flairBgColor = element.dataset.flairBgColor;
+        const flairColor = element.dataset.flairColor;
+        const flairName = element.dataset.flairName || "";
 
-    if (isIcon) {
-      const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
-      return `<span class="d-icon d-icon-${iconName} ${className}" title="${flairName}"></span>`;
-    }
+        if (flairUrl && flairGroupId) {
+          injectFlairStyles(flairGroupId, flairUrl, flairBgColor, flairColor);
 
-    return `<span class="${className}" title="${flairName}"></span>`;
+          const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+          const className = `user-flair-inline flair-group-${flairGroupId}`;
+
+          let flairElement;
+          if (isIcon) {
+            const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
+            flairElement = document.createElement("span");
+            flairElement.className = `d-icon d-icon-${iconName} ${className}`;
+            flairElement.title = flairName;
+          } else {
+            flairElement = document.createElement("span");
+            flairElement.className = className;
+            flairElement.title = flairName;
+          }
+
+          // Insert flair after the avatar
+          element.parentNode?.insertBefore(flairElement, element.nextSibling);
+        }
+      });
+    }, 100);
   });
 });
