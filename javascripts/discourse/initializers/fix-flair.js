@@ -32,6 +32,12 @@ export default apiInitializer("1.8.0", (api) => {
           vertical-align: middle;
           margin-left: 5px;
         }\n`;
+      } else {
+        css += `.flair-group-${groupId} { 
+          display: inline-block;
+          margin-left: 5px;
+          font-size: 14px;
+        }\n`;
       }
 
       if (css) {
@@ -64,48 +70,37 @@ export default apiInitializer("1.8.0", (api) => {
     return [{ text: "\u200B", className, title: flairName }];
   });
 
-  // Use onPageChange to add flair via DOM manipulation for other locations
-  api.onPageChange(() => {
-    setTimeout(() => {
-      // Find all avatars and add flair next to them
-      document.querySelectorAll('[data-user-card]').forEach((element) => {
-        if (element.dataset.flairProcessed) return;
+  // Add CSS to show existing avatar flair everywhere
+  const globalFlairCSS = `
+    /* Show avatar flair in topic lists */
+    .topic-list .posters a[data-user-card] .avatar-flair,
+    .topic-list .topic-avatar .avatar-flair {
+      display: inline-block !important;
+      margin-left: 5px;
+    }
+    
+    /* Show avatar flair in user cards */
+    .user-card .avatar-flair,
+    .user-info .avatar-flair {
+      display: inline-block !important;
+      margin-left: 5px;
+    }
+    
+    /* Show avatar flair next to usernames */
+    .names .avatar-flair,
+    .username .avatar-flair {
+      display: inline-block !important;
+      margin-left: 5px;
+    }
+    
+    /* Ensure flair is visible */
+    .avatar-flair {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+  `;
 
-        const username = element.dataset.userCard;
-        if (!username) return;
-
-        // Mark as processed
-        element.dataset.flairProcessed = "true";
-
-        // Try to get user data from the element's attributes
-        const flairUrl = element.dataset.flairUrl;
-        const flairGroupId = element.dataset.flairGroupId;
-        const flairBgColor = element.dataset.flairBgColor;
-        const flairColor = element.dataset.flairColor;
-        const flairName = element.dataset.flairName || "";
-
-        if (flairUrl && flairGroupId) {
-          injectFlairStyles(flairGroupId, flairUrl, flairBgColor, flairColor);
-
-          const isIcon = /^fa[srlbd]?-/.test(flairUrl);
-          const className = `user-flair-inline flair-group-${flairGroupId}`;
-
-          let flairElement;
-          if (isIcon) {
-            const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
-            flairElement = document.createElement("span");
-            flairElement.className = `d-icon d-icon-${iconName} ${className}`;
-            flairElement.title = flairName;
-          } else {
-            flairElement = document.createElement("span");
-            flairElement.className = className;
-            flairElement.title = flairName;
-          }
-
-          // Insert flair after the avatar
-          element.parentNode?.insertBefore(flairElement, element.nextSibling);
-        }
-      });
-    }, 100);
-  });
+  const styleEl = document.createElement("style");
+  styleEl.textContent = globalFlairCSS;
+  document.head.appendChild(styleEl);
 });
