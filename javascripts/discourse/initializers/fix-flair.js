@@ -184,10 +184,11 @@ export default apiInitializer("1.8.0", (api) => {
           flairEl.classList.add("fix-flair-avatar-overlay");
           wrapper.appendChild(flairEl);
         } else {
-          // Avatar is already in a container, just add flair there
+          // Avatar is already in a container, add flair right after avatar image
           avatarParent.style.position = "relative";
           flairEl.classList.add("fix-flair-avatar-overlay");
-          avatarParent.appendChild(flairEl);
+          // Insert right after the avatar image, not at end of container
+          avatar.insertAdjacentElement('afterend', flairEl);
         }
       } else {
         // This is a username text link - add flair after username
