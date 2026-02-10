@@ -7,17 +7,24 @@
     vertical-align: middle;
   }
 
-  /* Flair overlay on avatars */
+  /* Flair overlay on avatars - default for large avatars (48px) */
   .fix-flair-avatar-overlay {
     position: absolute;
-    bottom: -3px;
-    right: -3px;
+    bottom: -2px;
+    right: -2px;
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     z-index: 10;
+  }
+
+  /* Smaller flair for small avatars (24px and below) */
+  .fix-flair-wrapper img.avatar[width="24"]~.fix-flair-avatar-overlay,
+  .fix-flair-wrapper img.avatar[width="20"]~.fix-flair-avatar-overlay {
+    width: 14px;
+    height: 14px;
+    bottom: -2px;
+    right: -2px;
   }
 
   /* Flair inline next to usernames */
