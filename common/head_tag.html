@@ -2,12 +2,14 @@
   /* Flair overlay on avatars */
   .fix-flair-avatar-overlay {
     position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 16px;
-    height: 16px;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    z-index: 1;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    z-index: 10;
   }
 
   /* Flair inline next to usernames */
@@ -29,10 +31,22 @@
     border-radius: 4px;
     font-size: 12px;
     text-align: center;
+    flex-shrink: 0;
   }
 
   /* Ensure poster-icon flairs look right */
   .poster-icon .fix-flair {
     margin-left: 0;
+  }
+
+  /* Make sure parent link has position relative */
+  a[data-user-card]:has(.fix-flair-avatar-overlay) {
+    position: relative !important;
+  }
+
+  /* Adjust avatar container to prevent overflow */
+  .topic-list-avatar,
+  .latest-poster-tlist {
+    position: relative;
   }
 </style>
