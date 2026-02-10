@@ -1,14 +1,13 @@
 import { apiInitializer } from "discourse/lib/api";
-import { h } from "virtual-dom";
 
-export default apiInitializer("1.0.0", (api) => {
+export default apiInitializer("1.8.0", (api) => {
   const injectedGroupStyles = new Set();
 
   function injectFlairStyles(groupId, flairUrl, bg, fg) {
     if (groupId && !injectedGroupStyles.has(groupId)) {
       const isIcon = /^fa[srlbd]?-/.test(flairUrl);
       const rules = [];
-      
+
       if (bg) {
         rules.push(`background-color: #${bg.replace("#", "")}`);
       }
@@ -20,7 +19,7 @@ export default apiInitializer("1.0.0", (api) => {
       if (rules.length) {
         css += `.flair-group-${groupId} { ${rules.join("; ")}; }\n`;
       }
-      
+
       if (!isIcon) {
         css += `.flair-group-${groupId} { 
           display: inline-block;
@@ -44,62 +43,7 @@ export default apiInitializer("1.0.0", (api) => {
     }
   }
 
-  function createFlairElement(attrs) {
-    const flairUrl = attrs.flair_url;
-    if (!flairUrl) return null;
-
-    const groupId = attrs.flair_group_id;
-    const flairName = attrs.flair_name || "";
-    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
-
-    // Inject styles
-    injectFlairStyles(groupId, flairUrl, attrs.flair_bg_color, attrs.flair_color);
-
-    const className = `user-flair-inline flair-group-${groupId || "default"}`;
-
-    if (isIcon) {
-      const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
-      return h("span.d-icon.d-icon-" + iconName + "." + className, {
-        attributes: { title: flairName }
-      });
-    }
-
-    // For image flair, create a span with the background image
-    return h("span." + className, {
-      attributes: { title: flairName }
-    });
-  }
-
-  // Decorate poster-avatar widget to add flair next to avatar
-  api.decorateWidget("poster-avatar:after", (helper) => {
-    const attrs = helper.attrs;
-    return createFlairElement(attrs);
-  });
-
-  // Decorate avatar-flair widget (used in user cards, topic lists, etc.)
-  api.decorateWidget("avatar-flair:after", (helper) => {
-    const attrs = helper.attrs;
-    const user = attrs.user || helper.getModel();
-    
-    if (user) {
-      return createFlairElement({
-        flair_url: user.flair_url,
-        flair_bg_color: user.flair_bg_color,
-        flair_color: user.flair_color,
-        flair_group_id: user.flair_group_id,
-        flair_name: user.flair_name
-      });
-    }
-    return null;
-  });
-
-  // Decorate post-avatar widget for topic lists
-  api.decorateWidget("post-avatar:after", (helper) => {
-    const attrs = helper.attrs;
-    return createFlairElement(attrs);
-  });
-
-  // Keep the original addPosterIcons for compatibility with poster icons area
+  // Use addPosterIcons - this is still supported and works in posts
   api.addPosterIcons((cfs, attrs) => {
     const flairUrl = attrs.flair_url;
     if (!flairUrl) return [];
@@ -118,5 +62,26 @@ export default apiInitializer("1.0.0", (api) => {
     }
 
     return [{ text: "\u200B", className, title: flairName }];
+  });
+
+  // Use decorateUsername to add flair next to usernames everywhere
+  api.decorateUsername((username, user) => {
+    if (!user || !user.flair_url) return;
+
+    const flairUrl = user.flair_url;
+    const groupId = user.flair_group_id;
+    const flairName = user.flair_name || "";
+    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
+
+    injectFlairStyles(groupId, flairUrl, user.flair_bg_color, user.flair_color);
+
+    const className = `user-flair-inline flair-group-${groupId || "default"}`;
+
+    if (isIcon) {
+      const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
+      return `<span class="d-icon d-icon-${iconName} ${className}" title="${flairName}"></span>`;
+    }
+
+    return `<span class="${className}" title="${flairName}"></span>`;
   });
 });
