@@ -68,22 +68,63 @@ export default apiInitializer("1.8.0", (api) => {
     flairCache[username] = null;
 
     try {
-      const response = await fetch(`/u/${username}/card.json`);
-      if (!response.ok) return null;
-
-      const data = await response.json();
-      const user = data.user;
-
-      if (user && user.flair_url) {
-        flairCache[username] = {
-          flair_url: user.flair_url,
-          flair_bg_color: user.flair_bg_color,
-          flair_color: user.flair_color,
-          flair_group_id: user.flair_group_id,
-          flair_name: user.flair_name,
-        };
-        console.log(`[fix-flair] Got flair for ${username}:`, flairCache[username]);
+      // Try to get user from Discourse store first
+      const store = api._lookupContainer("service:store");
+      if (store) {
+        try {
+          const user = store.peekRecord("user", username);
+          if (user && user.flair_url) {
+            console.log(`[fix-flair] Got flair from store for ${username}:`, user.flair_url);
+            flairCache[username] = {
+              flair_url: user.flair_url,
+              flair_bg_color: user.flair_bg_color,
+              flair_color: user.flair_color,
+              flair_group_id: user.flair_group_id,
+              flair_name: user.flair_name,
+            };
+            return flairCache[username];
+          }
+        } catch (e) {
+          console.log(`[fix-flair] Store peek failed for ${username}:`, e);
+        }
       }
+
+      // Try fetching from API endpoints
+      const endpoints = [
+        `/users/${username}.json`,
+        `/u/${username}.json`,
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`[fix-flair] Trying endpoint: ${endpoint}`);
+          const response = await fetch(endpoint);
+
+          if (!response.ok) {
+            console.log(`[fix-flair] ${endpoint} returned ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const user = data.user || data;
+
+          if (user && user.flair_url) {
+            flairCache[username] = {
+              flair_url: user.flair_url,
+              flair_bg_color: user.flair_bg_color,
+              flair_color: user.flair_color,
+              flair_group_id: user.flair_group_id,
+              flair_name: user.flair_name,
+            };
+            console.log(`[fix-flair] Got flair for ${username} from ${endpoint}:`, flairCache[username]);
+            return flairCache[username];
+          }
+        } catch (e) {
+          console.log(`[fix-flair] Error with ${endpoint} for ${username}:`, e.message);
+        }
+      }
+
+      console.log(`[fix-flair] No flair found for ${username}`);
     } catch (e) {
       console.log(`[fix-flair] Error fetching flair for ${username}:`, e);
     }
