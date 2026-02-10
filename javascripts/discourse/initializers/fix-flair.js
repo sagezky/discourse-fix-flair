@@ -78,26 +78,21 @@ export default apiInitializer("1.8.0", (api) => {
           const user = data.user || data;
 
           if (user && user.flair_url) {
-            const flair = {
+            return {
               flair_url: user.flair_url,
               flair_bg_color: user.flair_bg_color,
               flair_color: user.flair_color,
               flair_group_id: user.flair_group_id,
               flair_name: user.flair_name,
             };
-
-            return flair;
           }
         } catch (e) {
-          // Try next endpoint
+          // Fallback to next endpoint
         }
       }
-
-
     } catch (e) {
-
+      // Silent error
     }
-
     return null;
   }
 
