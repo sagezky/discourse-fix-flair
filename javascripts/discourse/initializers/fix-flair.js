@@ -3,7 +3,6 @@ import { apiInitializer } from "discourse/lib/api";
 export default apiInitializer("1.8.0", (api) => {
   console.log("[fix-flair] Plugin loaded!");
 
-  const flairCache = {};
   const injectedGroupStyles = new Set();
   const processedElements = new WeakSet();
 
@@ -61,34 +60,10 @@ export default apiInitializer("1.8.0", (api) => {
     return span;
   }
 
-  async function getUserFlair(username) {
-    if (username in flairCache) return flairCache[username];
+  const flairPromises = {};
 
-    // Mark as loading to prevent duplicate requests
-    flairCache[username] = null;
-
+  async function fetchFlairData(username) {
     try {
-      // Try to get user from Discourse store first
-      const store = api._lookupContainer("service:store");
-      if (store) {
-        try {
-          const user = store.peekRecord("user", username);
-          if (user && user.flair_url) {
-            console.log(`[fix-flair] Got flair from store for ${username}:`, user.flair_url);
-            flairCache[username] = {
-              flair_url: user.flair_url,
-              flair_bg_color: user.flair_bg_color,
-              flair_color: user.flair_color,
-              flair_group_id: user.flair_group_id,
-              flair_name: user.flair_name,
-            };
-            return flairCache[username];
-          }
-        } catch (e) {
-          console.log(`[fix-flair] Store peek failed for ${username}:`, e);
-        }
-      }
-
       // Try fetching from API endpoints
       const endpoints = [
         `/users/${username}.json`,
@@ -97,30 +72,25 @@ export default apiInitializer("1.8.0", (api) => {
 
       for (const endpoint of endpoints) {
         try {
-          console.log(`[fix-flair] Trying endpoint: ${endpoint}`);
           const response = await fetch(endpoint);
-
-          if (!response.ok) {
-            console.log(`[fix-flair] ${endpoint} returned ${response.status}`);
-            continue;
-          }
+          if (!response.ok) continue;
 
           const data = await response.json();
           const user = data.user || data;
 
           if (user && user.flair_url) {
-            flairCache[username] = {
+            const flair = {
               flair_url: user.flair_url,
               flair_bg_color: user.flair_bg_color,
               flair_color: user.flair_color,
               flair_group_id: user.flair_group_id,
               flair_name: user.flair_name,
             };
-            console.log(`[fix-flair] Got flair for ${username} from ${endpoint}:`, flairCache[username]);
-            return flairCache[username];
+            console.log(`[fix-flair] Got flair for ${username}:`, flair);
+            return flair;
           }
         } catch (e) {
-          console.log(`[fix-flair] Error with ${endpoint} for ${username}:`, e.message);
+          // Try next endpoint
         }
       }
 
@@ -129,7 +99,15 @@ export default apiInitializer("1.8.0", (api) => {
       console.log(`[fix-flair] Error fetching flair for ${username}:`, e);
     }
 
-    return flairCache[username];
+    return null;
+  }
+
+  function getUserFlair(username) {
+    // Return existing promise so all callers wait for the same fetch
+    if (!flairPromises[username]) {
+      flairPromises[username] = fetchFlairData(username);
+    }
+    return flairPromises[username];
   }
 
   async function injectFlairsOnPage() {
@@ -153,14 +131,17 @@ export default apiInitializer("1.8.0", (api) => {
     await Promise.all(promises);
 
     // Now inject flair elements
-    userElements.forEach((el) => {
-      if (processedElements.has(el)) return;
-      processedElements.add(el);
+    for (const el of userElements) {
+      if (processedElements.has(el)) continue;
 
       const username = el.dataset.userCard;
-      const flair = flairCache[username];
-      if (!flair) return;
+      const flair = await getUserFlair(username);
+      if (!flair) {
+        processedElements.add(el); // confirmed no flair
+        continue;
+      }
 
+      processedElements.add(el);
       const flairEl = createFlairDOM(flair);
 
       // Check context and inject appropriately
@@ -181,7 +162,7 @@ export default apiInitializer("1.8.0", (api) => {
         flairEl.classList.add("fix-flair-inline");
         el.after(flairEl);
       }
-    });
+    }
   }
 
   // Run on page changes (subsequent navigation)
