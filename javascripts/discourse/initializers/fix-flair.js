@@ -135,6 +135,12 @@ export default apiInitializer("1.8.0", (api) => {
         continue;
       }
 
+      // Prevention: Don't inject if a flair element already exists nearby
+      if (el.querySelector(".fix-flair") || (el.nextElementSibling && el.nextElementSibling.classList.contains("fix-flair"))) {
+        processedElements.add(el);
+        continue;
+      }
+
       processedElements.add(el);
       const flairEl = createFlairDOM(flair);
 
@@ -181,26 +187,5 @@ export default apiInitializer("1.8.0", (api) => {
   observer.observe(document.body, {
     childList: true,
     subtree: true,
-  });
-
-  // Also keep addPosterIcons for within-post flair
-  api.addPosterIcons((cfs, attrs) => {
-    const flairUrl = attrs.flair_url;
-    if (!flairUrl) return [];
-
-    const groupId = attrs.flair_group_id;
-    const flairName = attrs.flair_name || "";
-    const isIcon = /^fa[srlbd]?-/.test(flairUrl);
-
-    injectFlairStyles(groupId, flairUrl, attrs.flair_bg_color, attrs.flair_color);
-
-    const className = `fix-flair fix-flair-${groupId || "default"}`;
-
-    if (isIcon) {
-      const iconName = flairUrl.replace(/^fa[srlbd]?-/, "");
-      return [{ icon: iconName, className, title: flairName }];
-    }
-
-    return [{ text: "\u200B", className, title: flairName }];
   });
 });
