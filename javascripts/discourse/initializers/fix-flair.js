@@ -128,6 +128,13 @@ export default apiInitializer("1.8.0", (api) => {
     for (const el of userElements) {
       if (processedElements.has(el)) continue;
 
+      // Only inject flair on elements that contain an avatar image
+      const avatar = el.querySelector("img.avatar");
+      if (!avatar) {
+        processedElements.add(el);
+        continue;
+      }
+
       const username = el.dataset.userCard;
       const flair = await getUserFlair(username);
       if (!flair) {
@@ -135,47 +142,24 @@ export default apiInitializer("1.8.0", (api) => {
         continue;
       }
 
-      // Prevention: Don't inject if a flair element already exists nearby
-      if (el.querySelector(".fix-flair") || (el.nextElementSibling && el.nextElementSibling.classList.contains("fix-flair"))) {
+      // Don't inject if a flair already exists here
+      if (el.querySelector(".fix-flair")) {
         processedElements.add(el);
         continue;
-      }
-
-      const avatar = el.querySelector("img.avatar");
-
-      // If this is a username link (not an avatar), check if there's an avatar flair nearby 
-      // in the same parent block to avoid redundancy (like in post rows or topic lists)
-      if (!avatar) {
-        // Look for the widest possible container for a single post/row
-        const parent = el.closest(".topic-post, .row, .topic-body, .post-header, .user-info, .topic-list-item");
-        if (parent) {
-          // Skip if we already put a flair on an avatar OR if Discourse already put a native flair there
-          if (parent.querySelector(".fix-flair-avatar-overlay, .avatar-flair")) {
-            processedElements.add(el);
-            continue;
-          }
-        }
       }
 
       processedElements.add(el);
       const flairEl = createFlairDOM(flair);
 
-      if (avatar) {
-        // Always wrap avatar in its own small container for proper positioning
-        const wrapper = document.createElement("span");
-        wrapper.className = "fix-flair-wrapper";
+      // Wrap avatar in its own small container for proper positioning
+      const wrapper = document.createElement("span");
+      wrapper.className = "fix-flair-wrapper";
 
-        // Replace avatar with wrapper containing avatar + flair
-        avatar.parentNode.insertBefore(wrapper, avatar);
-        wrapper.appendChild(avatar);
+      avatar.parentNode.insertBefore(wrapper, avatar);
+      wrapper.appendChild(avatar);
 
-        flairEl.classList.add("fix-flair-avatar-overlay");
-        wrapper.appendChild(flairEl);
-      } else {
-        // This is a username text link - add flair after username
-        flairEl.classList.add("fix-flair-inline");
-        el.after(flairEl);
-      }
+      flairEl.classList.add("fix-flair-avatar-overlay");
+      wrapper.appendChild(flairEl);
     }
   }
 
