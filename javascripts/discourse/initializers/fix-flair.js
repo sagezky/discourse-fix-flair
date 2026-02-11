@@ -131,7 +131,7 @@ export default apiInitializer("1.8.0", (api) => {
       const username = el.dataset.userCard;
       const flair = await getUserFlair(username);
       if (!flair) {
-        processedElements.add(el); // confirmed no flair
+        processedElements.add(el);
         continue;
       }
 
@@ -141,11 +141,21 @@ export default apiInitializer("1.8.0", (api) => {
         continue;
       }
 
+      const avatar = el.querySelector("img.avatar");
+
+      // If this is a username link (not an avatar), check if there's an avatar flair nearby 
+      // in the same parent container to avoid redundancy (like in post headers)
+      if (!avatar) {
+        const parent = el.closest(".topic-body, .post-header, .user-info, .topic-list-item");
+        if (parent && parent.querySelector(".fix-flair-avatar-overlay")) {
+          processedElements.add(el);
+          continue;
+        }
+      }
+
       processedElements.add(el);
       const flairEl = createFlairDOM(flair);
 
-      // Check context and inject appropriately
-      const avatar = el.querySelector("img.avatar");
       if (avatar) {
         // Always wrap avatar in its own small container for proper positioning
         const wrapper = document.createElement("span");
