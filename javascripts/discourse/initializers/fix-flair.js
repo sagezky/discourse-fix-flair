@@ -144,12 +144,16 @@ export default apiInitializer("1.8.0", (api) => {
       const avatar = el.querySelector("img.avatar");
 
       // If this is a username link (not an avatar), check if there's an avatar flair nearby 
-      // in the same parent container to avoid redundancy (like in post headers)
+      // in the same parent block to avoid redundancy (like in post rows or topic lists)
       if (!avatar) {
-        const parent = el.closest(".topic-body, .post-header, .user-info, .topic-list-item");
-        if (parent && parent.querySelector(".fix-flair-avatar-overlay")) {
-          processedElements.add(el);
-          continue;
+        // Look for the widest possible container for a single post/row
+        const parent = el.closest(".topic-post, .row, .topic-body, .post-header, .user-info, .topic-list-item");
+        if (parent) {
+          // Skip if we already put a flair on an avatar OR if Discourse already put a native flair there
+          if (parent.querySelector(".fix-flair-avatar-overlay, .avatar-flair")) {
+            processedElements.add(el);
+            continue;
+          }
         }
       }
 
