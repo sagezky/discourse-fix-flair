@@ -128,6 +128,10 @@ export default apiInitializer("1.8.0", (api) => {
     for (const el of userElements) {
       if (processedElements.has(el)) continue;
 
+      // Claim this element immediately before any await to prevent race conditions
+      // across concurrent injectFlairsOnPage calls
+      processedElements.add(el);
+
       // Only inject flair on elements that contain an avatar image
       const avatar = el.querySelector("img.avatar");
       // If no avatar, this is likely a username link.
@@ -135,7 +139,6 @@ export default apiInitializer("1.8.0", (api) => {
       if (!avatar) {
         // Just check if *this specific element* already has a flair or if one is right next to it
         if (el.querySelector(".fix-flair") || (el.nextElementSibling && el.nextElementSibling.classList.contains("fix-flair"))) {
-          processedElements.add(el);
           continue;
         }
 
@@ -143,12 +146,10 @@ export default apiInitializer("1.8.0", (api) => {
         const inlineUsername = el.dataset.userCard;
         const inlineFlair = await getUserFlair(inlineUsername);
         if (!inlineFlair) {
-          processedElements.add(el);
           continue;
         }
 
         // Inject inline flair after the username element
-        processedElements.add(el);
         const flairEl = createFlairDOM(inlineFlair);
         flairEl.classList.add("fix-flair-inline");
         el.after(flairEl);
@@ -158,13 +159,11 @@ export default apiInitializer("1.8.0", (api) => {
       const username = el.dataset.userCard;
       const flair = await getUserFlair(username);
       if (!flair) {
-        processedElements.add(el);
         continue;
       }
 
       // Don't inject if a flair already exists here (our own flair)
       if (el.querySelector(".fix-flair")) {
-        processedElements.add(el);
         continue;
       }
 
@@ -172,11 +171,8 @@ export default apiInitializer("1.8.0", (api) => {
       // e.g. .avatar-flair, .poster-icon
       const parent = el.closest(".post-avatar, .topic-avatar, .poster-avatar, .user-card-avatar");
       if (parent && parent.querySelector(".avatar-flair")) {
-        processedElements.add(el);
         continue;
       }
-
-      processedElements.add(el);
       const flairEl = createFlairDOM(flair);
 
       // Wrap avatar in its own small container for proper positioning
