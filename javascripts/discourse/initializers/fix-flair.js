@@ -142,8 +142,16 @@ export default apiInitializer("1.8.0", (api) => {
         continue;
       }
 
-      // Don't inject if a flair already exists here
+      // Don't inject if a flair already exists here (our own flair)
       if (el.querySelector(".fix-flair")) {
+        processedElements.add(el);
+        continue;
+      }
+
+      // Check for native Discourse flair or other existing flair elements nearby
+      // e.g. .avatar-flair, .poster-icon
+      const parent = el.closest(".post-avatar, .topic-avatar, .poster-avatar, .user-card-avatar");
+      if (parent && parent.querySelector(".avatar-flair")) {
         processedElements.add(el);
         continue;
       }
