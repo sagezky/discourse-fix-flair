@@ -130,8 +130,20 @@ export default apiInitializer("1.8.0", (api) => {
 
       // Only inject flair on elements that contain an avatar image
       const avatar = el.querySelector("img.avatar");
+      // If no avatar, this is likely a username link.
+      // We still want to inject flair here as per user request (inline flair)
       if (!avatar) {
+        // Just check if *this specific element* already has a flair or if one is right next to it
+        if (el.querySelector(".fix-flair") || (el.nextElementSibling && el.nextElementSibling.classList.contains("fix-flair"))) {
+          processedElements.add(el);
+          continue;
+        }
+
+        // Inject inline flair
         processedElements.add(el);
+        const flairEl = createFlairDOM(flair);
+        flairEl.classList.add("fix-flair-inline");
+        el.after(flairEl);
         continue;
       }
 
