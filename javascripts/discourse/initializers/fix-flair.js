@@ -139,9 +139,17 @@ export default apiInitializer("1.8.0", (api) => {
           continue;
         }
 
-        // Inject inline flair
+        // Fetch flair for this username link
+        const inlineUsername = el.dataset.userCard;
+        const inlineFlair = await getUserFlair(inlineUsername);
+        if (!inlineFlair) {
+          processedElements.add(el);
+          continue;
+        }
+
+        // Inject inline flair after the username element
         processedElements.add(el);
-        const flairEl = createFlairDOM(flair);
+        const flairEl = createFlairDOM(inlineFlair);
         flairEl.classList.add("fix-flair-inline");
         el.after(flairEl);
         continue;
