@@ -189,13 +189,13 @@ export default apiInitializer("1.8.0", (api) => {
       flairEl.classList.add("fix-flair-avatar-overlay");
       wrapper.appendChild(flairEl);
 
-      // Also inject inline flair inside username text span if present
-      // e.g. topic list items that contain both avatar and .username span
-      const usernameSpan = el.querySelector(".username");
-      if (usernameSpan && !usernameSpan.querySelector(".fix-flair-inline")) {
+      // Also inject inline flair inside full name span if present
+      // e.g. topic list items that contain both avatar and .full-name-tlist span
+      const fullNameSpan = el.querySelector(".full-name-tlist");
+      if (fullNameSpan && !fullNameSpan.querySelector(".fix-flair-inline")) {
         const inlineFlairEl = createFlairDOM(flair);
         inlineFlairEl.classList.add("fix-flair-inline");
-        usernameSpan.appendChild(inlineFlairEl);
+        fullNameSpan.appendChild(inlineFlairEl);
       }
     }
   }
