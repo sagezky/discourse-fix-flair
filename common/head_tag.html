@@ -66,4 +66,12 @@
     margin-left: 15px;
     margin-bottom: 10px;
   }
+
+  /* Pagar pembatas biar float nggak bablas ke bawah */
+  [data-wrap="clear"] {
+    clear: both;
+    display: block;
+    width: 100%;
+    height: 1px; /* Biar ada jarak dikit kalau butuh, bisa di-set 0 */
+  }
 </style>
